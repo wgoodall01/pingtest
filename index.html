@@ -1,0 +1,157 @@
+<head>
+  <title>Pingtest</title>
+<style>
+
+
+
+:root{
+  font-family:sans-serif;
+  background-color:#d2d2d240;
+}
+
+.container{
+  margin:0 auto;
+  max-width:400px;
+  margin-top: 50px;
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 3px 10px 0px rgba(0,0,0,0.5);
+  padding: 30px;
+}
+
+.avg{
+  font-size:70px;
+}
+
+.avg:after{
+  content:"ms";
+  margin-left:10px;
+  font-size:16px;
+  color:grey;
+}
+
+.details{
+  margin-top:10px;
+  display:flex;
+  flex-direction:row;
+}
+
+.min:before{
+  content:"min";
+  color:grey;
+  margin-right:5px;
+}
+
+.min:after{
+  content:"ms";
+  margin-left:1px;
+  margin-right:20px;
+}
+
+
+.max:before{
+  content:"max";
+  color:grey;
+  margin-right:5px;
+}
+
+.max:after{
+  content:"ms";
+  margin-left:1px;
+  margin-right:20px;
+}
+
+.title{
+  font-weight:500;
+}
+
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">Ping</h1>
+    <div class="avg">0.00</div>
+    <div class="details">
+      <div class="min">-</div>
+      <div class="max">-</div>
+    </div>
+    <div class="results"></div>
+  </div>
+<script>
+"use strict";
+
+document.querySelector(".title").textContent = `Ping to ${window.location.hostname}`;
+
+const avgEl = document.querySelector(".avg");
+const minEl = document.querySelector(".min");
+const maxEl = document.querySelector(".max");
+
+let ws = null;
+
+function start(){
+  ws = new WebSocket(`ws://${window.location.host}${window.location.pathname}`);
+  ws.onmessage = onMsg;
+  
+  ws.onopen = sendPing;
+}
+
+const inflight = new Map();
+const done = [];
+let latestId = 0;
+
+function onMsg(wsResp){
+  console.log("<-", wsResp.data)
+  const newTime = Date.now();
+  const msg = JSON.parse(wsResp.data);
+  const oldTime = inflight.get(msg.id);
+  inflight.delete(msg.id);
+  const timeDiff = newTime-oldTime;
+
+  if(msg.id > 0){
+    // Don't update for first ping, they have a higher latency.
+    done.push(timeDiff);
+    update();
+  }
+  
+  if(latestId < 100){
+    setTimeout(sendPing, 300);
+  }
+}
+
+function sendPing(){
+  const time = Date.now();
+  const msg = {
+    id: latestId++
+  };
+  inflight.set(msg.id, time);
+  ws.send(JSON.stringify(msg));
+}
+
+function update(){
+  let min = done[0];
+  let max = done[0];
+  let sum = 0;
+  done.forEach(e => {
+    if(e < min){
+      min = e;
+    }
+    if(e > max){
+      max = e;
+    }
+    sum = sum + e;
+  })
+
+  avgEl.textContent = (sum/done.length).toFixed(2);
+  minEl.textContent = min;
+  maxEl.textContent = max;
+  
+}
+
+window.done = done;
+window.ws = ws;
+window.sendPing = sendPing;
+
+start()
+
+</script>
+</body>
