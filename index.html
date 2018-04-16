@@ -89,7 +89,8 @@ const maxEl = document.querySelector(".max");
 let ws = null;
 
 function start(){
-  ws = new WebSocket(`ws://${window.location.host}${window.location.pathname}`);
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${window.location.host}${window.location.pathname}`);
   ws.onmessage = onMsg;
   
   ws.onopen = sendPing;
